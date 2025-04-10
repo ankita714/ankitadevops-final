@@ -139,7 +139,7 @@ Resources:
                 Owner: 'ankita714'
                 Repo: 'ankita-finaltest-api'
                 Branch: 'main'
-                OAuthToken: 'YOUR_TOKEN_HERE'
+                OAuthToken: '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'
         - Name: 'Build'
           Actions:
             - Name: 'CodeBuild'
