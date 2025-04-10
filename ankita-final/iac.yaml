@@ -184,7 +184,7 @@ Resources:
         Type: 'LINUX_CONTAINER'
       Artifacts:
         Type: 'NO_ARTIFACTS'
-      ServiceRole: 'arn:aws:iam::account-id:role/service-role/CodeBuildServiceRole'
+      ServiceRole: 'arn:aws:iam::730335669066:role/service-role/CodeBuildServiceRole'
 
   # CloudWatch Alarm for Build Failure
   AnkitaBuildFailureAlarm:
