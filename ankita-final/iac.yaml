@@ -120,7 +120,7 @@ Resources:
     Type: 'AWS::CodePipeline::Pipeline'
     Properties:
       Name: 'AnkitaPipeline'
-      RoleArn: 'arn:aws:iam::account-id:role/service-role/CodePipelineServiceRole'
+      RoleArn: 'arn:aws:iam::730335669066:role/service-role/CodePipelineServiceRole'
       ArtifactStore:
         Type: 'S3'
         Location: 'ankita-artifacts'
