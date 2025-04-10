@@ -1,0 +1,210 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Infrastructure as Code for Wild Rydes CI/CD with ECS and Fargate
+
+Resources:
+
+  # VPC
+  AnkitaVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: '10.0.0.0/16'
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: 'Name'
+          Value: 'AnkitaVPC'
+
+  # Public Subnet
+  AnkitaPublicSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref AnkitaVPC
+      CidrBlock: '10.0.1.0/24'
+      AvailabilityZone: 'us-east-1a'
+      MapPublicIpOnLaunch: 'true'
+      Tags:
+        - Key: 'Name'
+          Value: 'AnkitaPublicSubnet1'
+
+  # Private Subnet
+  AnkitaPrivateSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref AnkitaVPC
+      CidrBlock: '10.0.2.0/24'
+      AvailabilityZone: 'us-east-1a'
+      Tags:
+        - Key: 'Name'
+          Value: 'AnkitaPrivateSubnet1'
+
+  # Internet Gateway
+  AnkitaInternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: 'Name'
+          Value: 'AnkitaIG'
+
+  # Attach Internet Gateway to VPC
+  AnkitaAttachGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref AnkitaVPC
+      InternetGatewayId: !Ref AnkitaInternetGateway
+
+  # ECS Cluster
+  AnkitaECSCluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties:
+      ClusterName: 'AnkitaCluster'
+
+  # Security Group for ECS Fargate
+  AnkitaSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Allow HTTP and SSH access'
+      VpcId: !Ref AnkitaVPC
+      SecurityGroupIngress:
+        - IpProtocol: 'tcp'
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: '0.0.0.0/0'
+
+  # Application Load Balancer
+  AnkitaALB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Name: 'AnkitaALB'
+      Subnets:
+        - Ref: 'AnkitaPublicSubnet1'
+      SecurityGroups:
+        - !Ref AnkitaSecurityGroup
+      Scheme: 'internet-facing'
+      LoadBalancerAttributes:
+        - Key: 'idle_timeout.timeout_seconds'
+          Value: '60'
+
+  # ECS Fargate Task Definition
+AnkitaTaskDefinition:
+  Type: 'AWS::ECS::TaskDefinition'
+  Properties:
+    Family: 'AnkitaTask'
+    Cpu: '256'
+    Memory: '512'
+    NetworkMode: 'awsvpc'
+    ContainerDefinitions:
+      - Name: 'ankita-container'
+        Image: !Sub '730335669066.dkr.ecr.us-east-1.amazonaws.com/ankita-app:${CODEBUILD_RESOLVED_SOURCE_VERSION}'
+        PortMappings:
+          - ContainerPort: 5000
+            HostPort: 5000
+
+  # ECS Fargate Service
+  AnkitaFargateService:
+    Type: 'AWS::ECS::Service'
+    Properties:
+      Cluster: !Ref AnkitaECSCluster
+      TaskDefinition: !Ref AnkitaTaskDefinition
+      DesiredCount: 2
+      LaunchType: 'FARGATE'
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - Ref: 'AnkitaPrivateSubnet1'
+          SecurityGroups:
+            - !Ref AnkitaSecurityGroup
+          AssignPublicIp: 'ENABLED'
+
+  # CodePipeline
+  AnkitaCodePipeline:
+    Type: 'AWS::CodePipeline::Pipeline'
+    Properties:
+      Name: 'AnkitaPipeline'
+      RoleArn: 'arn:aws:iam::account-id:role/service-role/CodePipelineServiceRole'
+      ArtifactStore:
+        Type: 'S3'
+        Location: 'ankita-artifacts'
+      Stages:
+        - Name: 'Source'
+          Actions:
+            - Name: 'GitHubSource'
+              ActionTypeId:
+                Category: 'Source'
+                Owner: 'ThirdParty'
+                Provider: 'GitHub'
+                Version: '1'
+              OutputArtifacts:
+                - Name: 'SourceOutput'
+              Configuration:
+                Owner: 'ankita714'
+                Repo: 'ankita-finaltest-api'
+                Branch: 'main'
+                OAuthToken: 'YOUR_TOKEN_HERE'
+        - Name: 'Build'
+          Actions:
+            - Name: 'CodeBuild'
+              ActionTypeId:
+                Category: 'Build'
+                Owner: 'AWS'
+                Provider: 'CodeBuild'
+                Version: '1'
+              InputArtifacts:
+                - Name: 'SourceOutput'
+              OutputArtifacts:
+                - Name: 'BuildOutput'
+              Configuration:
+                ProjectName: 'AnkitaCodeBuildProject'
+        - Name: 'Deploy'
+          Actions:
+            - Name: 'ECSDeploy'
+              ActionTypeId:
+                Category: 'Deploy'
+                Owner: 'AWS'
+                Provider: 'ECS'
+                Version: '1'
+              InputArtifacts:
+                - Name: 'BuildOutput'
+              Configuration:
+                ClusterName: !Ref AnkitaECSCluster
+                ServiceName: !Ref AnkitaFargateService
+                FileName: 'imagedefinitions.json'
+
+  # CodeBuild Project
+  AnkitaCodeBuildProject:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Name: 'AnkitaCodeBuild'
+      Description: 'Build Docker image and push to ECR'
+      Source:
+        Type: 'GITHUB'
+        Location: 'https://github.com/ankita714/ankita-finaltest-api'
+      Environment:
+        ComputeType: 'BUILD_GENERAL1_SMALL'
+        Image: 'aws/codebuild/standard:4.0'
+        Type: 'LINUX_CONTAINER'
+      Artifacts:
+        Type: 'NO_ARTIFACTS'
+      ServiceRole: 'arn:aws:iam::account-id:role/service-role/CodeBuildServiceRole'
+
+  # CloudWatch Alarm for Build Failure
+  AnkitaBuildFailureAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: 'AnkitaBuildFailureAlarm'
+      ComparisonOperator: 'GreaterThanThreshold'
+      EvaluationPeriods: '1'
+      MetricName: 'BuildStatus'
+      Namespace: 'AWS/CodeBuild'
+      Period: '60'
+      Statistic: 'SampleCount'
+      Threshold: '1'
+      AlarmActions:
+        - 'arn:aws:sns:us-east-1:account-id:CodeBuildFailureTopic'
+      Dimensions:
+        - Name: 'ProjectName'
+          Value: 'AnkitaCodeBuildProject'
+
+Outputs:
+  ECSServiceURL:
+    Description: 'URL of the ECS Service'
+    Value: !Sub 'http://${AnkitaALB.DNSName}'

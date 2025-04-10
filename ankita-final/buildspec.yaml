@@ -1,0 +1,20 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 730335669066.dkr.ecr.us-east-1.amazonaws.com
+      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+  build:
+    commands:
+      - echo Building the Docker image...
+      - docker build -t 730335669066.dkr.ecr.us-east-1.amazonaws.com/ankita-app:$IMAGE_TAG .
+      - docker push 730335669066.dkr.ecr.us-east-1.amazonaws.com/ankita-app:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo Creating imagedefinitions.json...
+      - printf '[{"name":"app","imageUri":"730335669066.dkr.ecr.us-east-1.amazonaws.com/ankita-app:%s"}]' $IMAGE_TAG > imagedefinitions.json
+
+artifacts:
+  files: imagedefinitions.json
