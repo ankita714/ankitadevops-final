@@ -85,19 +85,19 @@ Resources:
           Value: '60'
 
   # ECS Fargate Task Definition
-AnkitaTaskDefinition:
-  Type: 'AWS::ECS::TaskDefinition'
-  Properties:
-    Family: 'AnkitaTask'
-    Cpu: '256'
-    Memory: '512'
-    NetworkMode: 'awsvpc'
-    ContainerDefinitions:
-      - Name: 'ankita-container'
-        Image: !Sub '730335669066.dkr.ecr.us-east-1.amazonaws.com/ankita-app:${CODEBUILD_RESOLVED_SOURCE_VERSION}'
-        PortMappings:
-          - ContainerPort: 5000
-            HostPort: 5000
+  AnkitaTaskDefinition:
+    Type: 'AWS::ECS::TaskDefinition'
+    Properties:
+      Family: 'AnkitaTask'
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: 'awsvpc'
+      ContainerDefinitions:
+        - Name: 'ankita-container'
+          Image: !Sub '730335669066.dkr.ecr.us-east-1.amazonaws.com/ankita-app:${CODEBUILD_RESOLVED_SOURCE_VERSION}'
+          PortMappings:
+            - ContainerPort: 5000
+              HostPort: 5000
 
   # ECS Fargate Service
   AnkitaFargateService:
@@ -139,7 +139,7 @@ AnkitaTaskDefinition:
                 Owner: 'ankita714'
                 Repo: 'ankita-finaltest-api'
                 Branch: 'main'
-                OAuthToken: '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'
+                OAuthToken: 'YOUR_TOKEN_HERE'
         - Name: 'Build'
           Actions:
             - Name: 'CodeBuild'
@@ -208,3 +208,4 @@ Outputs:
   ECSServiceURL:
     Description: 'URL of the ECS Service'
     Value: !Sub 'http://${AnkitaALB.DNSName}'
+
